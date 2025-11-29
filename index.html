@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Рисование пальцами</title>
+<title>Рисование пальцами — Цвет и Сохранение</title>
 <style>
   body { margin:0; font-family: sans-serif; background:#0f1724; color:#e6eef8; display:flex; justify-content:center; align-items:center; height:100vh; }
   .app { position:relative; width:900px; max-width:95vw; height:600px; max-height:90vh; border-radius:12px; overflow:hidden; background:#111827; }
@@ -12,6 +12,7 @@
   .controls { position:absolute; top:10px; right:10px; display:flex; flex-direction:column; gap:6px; background:rgba(0,0,0,0.3); padding:8px 10px; border-radius:8px; }
   .controls input[type=range] { width:100px; }
   .controls button { padding:6px 10px; border:none; border-radius:6px; background:#60a5fa; color:#062440; cursor:pointer; font-weight:600; }
+  .controls label { font-size:13px; }
   #status { font-size:13px; }
   .hint { position:absolute; bottom:10px; left:10px; font-size:13px; color:#9ca3af; background:rgba(2,6,23,0.6); padding:6px 10px; border-radius:8px; }
 </style>
@@ -26,8 +27,11 @@
     <div id="status">Камера не включена</div>
     <label>Толщина <input type="range" id="thickness" min="1" max="25" value="6"></label>
     <label>Чувствительность <input type="range" id="threshold" min="20" max="120" value="50"></label>
+    <label>Цвет линии <input type="color" id="lineColor" value="#ffffff"></label>
+    <label>Цвет фона <input type="color" id="bgColor" value="#111827"></label>
     <button id="startCamera">Включить камеру</button>
     <button id="clear">Очистить холст</button>
+    <button id="save">Сохранить PNG</button>
   </div>
 
   <div class="hint">Поднесите большой палец к указательному и ведите, чтобы рисовать</div>
@@ -47,19 +51,30 @@ const drawCtx = drawCanvas.getContext('2d');
 const statusEl = document.getElementById('status');
 const thicknessInput = document.getElementById('thickness');
 const thresholdInput = document.getElementById('threshold');
+const lineColorInput = document.getElementById('lineColor');
+const bgColorInput = document.getElementById('bgColor');
 const startBtn = document.getElementById('startCamera');
 const clearBtn = document.getElementById('clear');
+const saveBtn = document.getElementById('save');
 
 let camera;
 let drawing = false;
 let lastPoint = null;
 let scaleW=1, scaleH=1;
 
+// установка фонового цвета
+function setBackgroundColor(color){
+  drawCtx.fillStyle = color;
+  drawCtx.fillRect(0,0,drawCanvas.width, drawCanvas.height);
+}
+
+// ресайз
 function resizeCanvases() {
   overlay.width = drawCanvas.width = video.videoWidth;
   overlay.height = drawCanvas.height = video.videoHeight;
   scaleW = overlay.width;
   scaleH = overlay.height;
+  setBackgroundColor(bgColorInput.value);
 }
 
 const hands = new Hands({
@@ -90,7 +105,6 @@ hands.onResults(results => {
   const dx=tx-ix, dy=ty-iy, distPx=Math.hypot(dx,dy);
   const threshold = Number(thresholdInput.value);
 
-  // индикатор
   overlayCtx.beginPath();
   overlayCtx.arc((tx+ix)/2, (ty+iy)/2, Math.min(30, Math.max(8, threshold/2)),0,Math.PI*2);
   overlayCtx.fillStyle = distPx<=threshold?'rgba(124,255,178,0.12)':'rgba(255,255,255,0.02)';
@@ -104,7 +118,7 @@ hands.onResults(results => {
     let py=lastPoint ? lastPoint.y*0.65 + iy*0.35 : iy;
     drawCtx.lineJoin='round';
     drawCtx.lineCap='round';
-    drawCtx.strokeStyle='#ffffff';
+    drawCtx.strokeStyle=lineColorInput.value;
     drawCtx.lineWidth=Number(thicknessInput.value);
 
     if(!drawing){
@@ -137,7 +151,20 @@ startBtn.addEventListener('click', async ()=>{
   }
 });
 
-clearBtn.addEventListener('click', ()=>drawCtx.clearRect(0,0,drawCanvas.width,drawCanvas.height));
+clearBtn.addEventListener('click', ()=>{
+  setBackgroundColor(bgColorInput.value);
+});
+
+bgColorInput.addEventListener('input', ()=>{
+  setBackgroundColor(bgColorInput.value);
+});
+
+saveBtn.addEventListener('click', ()=>{
+  const link = document.createElement('a');
+  link.download = 'drawing.png';
+  link.href = drawCanvas.toDataURL('image/png');
+  link.click();
+});
 </script>
 </body>
 </html>
