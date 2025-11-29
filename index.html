@@ -1,149 +1,39 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Рисование пальцами — MediaPipe Hands</title>
-
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Рисование пальцами</title>
 <style>
-  :root{
-    --bg:#0f1724;
-    --panel:#0b1220;
-    --accent:#60a5fa;
-    --muted:#9ca3af;
-  }
-  html,body{height:100%;margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial;}
-  body{background:linear-gradient(180deg,#071029 0%, #0f1724 100%);color:#e6eef8;display:flex;align-items:center;justify-content:center;}
-  .app{
-    width:940px;
-    max-width:96vw;
-    height:600px;
-    max-height:90vh;
-    background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
-    border-radius:14px;
-    box-shadow: 0 10px 30px rgba(2,6,23,0.7);
-    overflow:hidden;
-    position:relative;
-    border:1px solid rgba(255,255,255,0.03);
-  }
-
-  /* Видеопоток и канвасы — накладываются друг на друга */
-  .viewport{
-    position:absolute;
-    inset:0;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-  }
-  video#video{
-    transform: scaleX(-1); /* зеркалим, чтобы управление было естественным */
-    display:block;
-    width:100%;
-    height:100%;
-    object-fit:cover;
-  }
-  canvas#overlay, canvas#draw {
-    position:absolute;
-    left:0;top:0;
-    width:100%;height:100%;
-    pointer-events:none; /* события мыши проходят сквозь канвас */
-    transform: scaleX(-1); /* синхронизировать с видео */
-  }
-
-  /* Контролы */
-  .controls{
-    position:absolute;
-    right:12px;
-    top:12px;
-    background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
-    padding:10px;
-    border-radius:10px;
-    border:1px solid rgba(255,255,255,0.03);
-    display:flex;
-    gap:8px;
-    align-items:center;
-    flex-wrap:wrap;
-    backdrop-filter: blur(6px);
-  }
-  .controls label{font-size:13px;color:var(--muted);margin-right:6px;}
-  .controls input[type=range]{width:110px;}
-  .controls button{
-    background:var(--accent);
-    color:#062440;
-    border:none;
-    padding:6px 10px;
-    border-radius:8px;
-    font-weight:600;
-    cursor:pointer;
-  }
-  .hint{
-    position:absolute;
-    left:12px;
-    bottom:12px;
-    background:rgba(2,6,23,0.6);
-    padding:8px 12px;
-    border-radius:10px;
-    font-size:13px;
-    color:var(--muted);
-    border:1px solid rgba(255,255,255,0.02);
-  }
-
-  /* статус */
-  .status{
-    position:absolute;
-    left:12px;
-    top:12px;
-    padding:6px 10px;
-    border-radius:8px;
-    background:rgba(255,255,255,0.02);
-    color:var(--muted);
-    font-size:13px;
-    border:1px solid rgba(255,255,255,0.02);
-  }
-
-  @media (max-width:680px){
-    .controls input[type=range]{width:80px;}
-  }
+  body { margin:0; font-family: sans-serif; background:#0f1724; color:#e6eef8; display:flex; justify-content:center; align-items:center; height:100vh; }
+  .app { position:relative; width:900px; max-width:95vw; height:600px; max-height:90vh; border-radius:12px; overflow:hidden; background:#111827; }
+  video, canvas { position:absolute; left:0; top:0; width:100%; height:100%; object-fit:cover; transform: scaleX(-1); }
+  canvas#draw { pointer-events:none; }
+  .controls { position:absolute; top:10px; right:10px; display:flex; flex-direction:column; gap:6px; background:rgba(0,0,0,0.3); padding:8px 10px; border-radius:8px; }
+  .controls input[type=range] { width:100px; }
+  .controls button { padding:6px 10px; border:none; border-radius:6px; background:#60a5fa; color:#062440; cursor:pointer; font-weight:600; }
+  #status { font-size:13px; }
+  .hint { position:absolute; bottom:10px; left:10px; font-size:13px; color:#9ca3af; background:rgba(2,6,23,0.6); padding:6px 10px; border-radius:8px; }
 </style>
 </head>
 <body>
-  <div class="app" id="app">
-    <div class="viewport">
-      <video id="video" autoplay playsinline></video>
-      <canvas id="overlay"></canvas>  <!-- отрисовка точек/контуров (опционально) -->
-      <canvas id="draw"></canvas>     <!-- главный холст для рисования линии -->
-    </div>
+<div class="app">
+  <video id="video" autoplay playsinline></video>
+  <canvas id="overlay"></canvas>
+  <canvas id="draw"></canvas>
 
-    <div class="controls" id="controls">
-      <div class="status" id="status">Статус: ждём камеру…</div>
-
-      <div style="display:flex;align-items:center;">
-        <label for="thickness">Толщина</label>
-        <input id="thickness" type="range" min="1" max="25" value="6">
-      </div>
-
-      <div style="display:flex;align-items:center;">
-        <label for="threshold">Чувствительность</label>
-        <input id="threshold" type="range" min="20" max="120" value="50">
-      </div>
-
-      <button id="clear">Очистить</button>
-    </div>
-
-    <div class="hint">Поднеси большой палец к указательному — удерживай и води, чтобы рисовать.</div>
+  <div class="controls">
+    <div id="status">Камера не включена</div>
+    <label>Толщина <input type="range" id="thickness" min="1" max="25" value="6"></label>
+    <label>Чувствительность <input type="range" id="threshold" min="20" max="120" value="50"></label>
+    <button id="startCamera">Включить камеру</button>
+    <button id="clear">Очистить холст</button>
   </div>
 
-<script type="module">
-/*
-  Приложение использует MediaPipe Hands (через CDN).
-  Логика:
-   - Считываем landmarks (21 точка) для первой руки.
-   - Берём thumb_tip (индекс 4) и index_tip (индекс 8).
-   - Считаем расстояние между ними (в нормализованных координатах), сравниваем с порогом.
-   - Когда расстояние меньше порога -> режим рисования (pinch) и запоминаем точку (сглаживание).
-   - При движении в режиме pinch рисуем линию на отдельном canvas (persist).
-*/
+  <div class="hint">Поднесите большой палец к указательному и ведите, чтобы рисовать</div>
+</div>
 
+<script type="module">
 import {Hands} from 'https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js';
 import {Camera} from 'https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js';
 import {drawConnectors, drawLandmarks} from 'https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js';
@@ -151,183 +41,103 @@ import {drawConnectors, drawLandmarks} from 'https://cdn.jsdelivr.net/npm/@media
 const video = document.getElementById('video');
 const overlay = document.getElementById('overlay');
 const drawCanvas = document.getElementById('draw');
-const overlayCtx = overlay.getContext('2d', {alpha:true});
-const drawCtx = drawCanvas.getContext('2d', {alpha:true});
+const overlayCtx = overlay.getContext('2d');
+const drawCtx = drawCanvas.getContext('2d');
 
 const statusEl = document.getElementById('status');
-const clearBtn = document.getElementById('clear');
 const thicknessInput = document.getElementById('thickness');
 const thresholdInput = document.getElementById('threshold');
+const startBtn = document.getElementById('startCamera');
+const clearBtn = document.getElementById('clear');
 
-let drawing = false;      // сейчас рисуем (pinch активен)
-let lastPoint = null;     // для сглаживания/соединения
-let smoothing = 0.65;     // больший = сильнее сглаживание
-let scaleW = 1, scaleH = 1;
+let camera;
+let drawing = false;
+let lastPoint = null;
+let scaleW=1, scaleH=1;
 
-// Инициализация размеров канвасов под реальный размер видео
 function resizeCanvases() {
-  const rect = video.getBoundingClientRect();
-  overlay.width = Math.round(rect.width);
-  overlay.height = Math.round(rect.height);
-  drawCanvas.width = overlay.width;
-  drawCanvas.height = overlay.height;
-  // соотношение для преобразования нормализованных coords -> пиксели
+  overlay.width = drawCanvas.width = video.videoWidth;
+  overlay.height = drawCanvas.height = video.videoHeight;
   scaleW = overlay.width;
   scaleH = overlay.height;
 }
-window.addEventListener('resize', () => requestAnimationFrame(resizeCanvases));
 
-// Инициализация MediaPipe Hands
 const hands = new Hands({
   locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
 });
 
 hands.setOptions({
-  selfieMode: true,            // зеркалим (удобно для управления рукой)
-  maxNumHands: 1,             // нам нужна одна рука
+  selfieMode: true,
+  maxNumHands: 1,
   minDetectionConfidence: 0.7,
   minTrackingConfidence: 0.6
 });
 
-hands.onResults(onResults);
-
-// Подключаем камеру через Camera util
-let camera;
-async function startCamera(){
-  try {
-    camera = new Camera(video, {
-      onFrame: async () => {
-        await hands.send({image: video});
-      },
-      width: 1280,
-      height: 720
-    });
-    camera.start();
-    statusEl.textContent = 'Статус: камера активна';
-    // ждем пока видео загрузится и выставим размеры
-    video.addEventListener('loadeddata', resizeCanvases, {once:true});
-  } catch(e) {
-    console.error('Не удалось запустить камеру', e);
-    statusEl.textContent = 'Ошибка камеры: открой настройки и разреши доступ.';
-  }
-}
-startCamera();
-
-function onResults(results) {
-  // очистка overlay (не стираем drawCanvas — там сохраняется нарисованное)
-  overlayCtx.clearRect(0,0,overlay.width,overlay.height);
-
-  if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
-    // нет руки — выходим из режима рисования
-    if (drawing) {
-      drawing = false;
-      lastPoint = null;
-    }
+hands.onResults(results => {
+  overlayCtx.clearRect(0,0,overlay.width, overlay.height);
+  if(!results.multiHandLandmarks || results.multiHandLandmarks.length===0){
+    drawing=false;
+    lastPoint=null;
     return;
   }
+  const landmarks = results.multiHandLandmarks[0];
+  drawConnectors(overlayCtx, landmarks, Hands.HAND_CONNECTIONS, {color: '#00ffb4', lineWidth:1.5});
+  drawLandmarks(overlayCtx, landmarks, {color:'#ff5c7c', lineWidth:1.2});
 
-  const landmarks = results.multiHandLandmarks[0]; // берём первую руку
+  const thumb = landmarks[4], index = landmarks[8];
+  const tx=thumb.x*scaleW, ty=thumb.y*scaleH;
+  const ix=index.x*scaleW, iy=index.y*scaleH;
+  const dx=tx-ix, dy=ty-iy, distPx=Math.hypot(dx,dy);
+  const threshold = Number(thresholdInput.value);
 
-  // Отрисовка (опционально) — соединители и точки
-  drawConnectors(overlayCtx, landmarks, Hands.HAND_CONNECTIONS, {color: '#00ffb4', lineWidth:1.8});
-  drawLandmarks(overlayCtx, landmarks, {color: '#ff5c7c', lineWidth:1.2});
-
-  // индексы точек: thumb_tip = 4, index_finger_tip = 8
-  const thumb = landmarks[4];
-  const index = landmarks[8];
-
-  // convert normalized -> pixel coords
-  const tx = thumb.x * scaleW;
-  const ty = thumb.y * scaleH;
-  const ix = index.x * scaleW;
-  const iy = index.y * scaleH;
-
-  // расстояние в пикселях
-  const dx = tx - ix;
-  const dy = ty - iy;
-  const distPx = Math.hypot(dx, dy);
-
-  // выбираем порог чувствительности.
-  // thresholdInput значение 20..120 (пиксели) — пользователь может настраивать
-  const userThreshold = Number(thresholdInput.value);
-  const threshold = userThreshold; // пиксельный порог
-
-  // отрисуем индикатор (если пальцы близко — круг зелёный)
+  // индикатор
   overlayCtx.beginPath();
-  overlayCtx.lineWidth = 2;
-  overlayCtx.strokeStyle = distPx <= threshold ? '#7CFFB2' : 'rgba(255,255,255,0.18)';
-  overlayCtx.fillStyle = distPx <= threshold ? 'rgba(124,255,178,0.12)' : 'rgba(255,255,255,0.02)';
-  const midx = (tx + ix) / 2, midy = (ty + iy) / 2;
-  overlayCtx.arc(midx, midy, Math.min(30, Math.max(8, threshold/2)), 0, Math.PI*2);
+  overlayCtx.arc((tx+ix)/2, (ty+iy)/2, Math.min(30, Math.max(8, threshold/2)),0,Math.PI*2);
+  overlayCtx.fillStyle = distPx<=threshold?'rgba(124,255,178,0.12)':'rgba(255,255,255,0.02)';
+  overlayCtx.strokeStyle = distPx<=threshold?'#7CFFB2':'rgba(255,255,255,0.18)';
+  overlayCtx.lineWidth=2;
   overlayCtx.fill();
   overlayCtx.stroke();
 
-  // Если расстояние меньше порога -> включаем рисование
-  if (distPx <= threshold) {
-    // вычисляем точку, за которой будем рисовать — можно взять midpoint или кончик указательного
-    const drawX = ix; // используем указательный (ix,iy)
-    const drawY = iy;
+  if(distPx <= threshold){
+    let px=lastPoint ? lastPoint.x*0.65 + ix*0.35 : ix;
+    let py=lastPoint ? lastPoint.y*0.65 + iy*0.35 : iy;
+    drawCtx.lineJoin='round';
+    drawCtx.lineCap='round';
+    drawCtx.strokeStyle='#ffffff';
+    drawCtx.lineWidth=Number(thicknessInput.value);
 
-    // сглаживание (экспоненциальное)
-    let px, py;
-    if (!lastPoint) {
-      px = drawX; py = drawY;
-    } else {
-      px = lastPoint.x * smoothing + drawX * (1 - smoothing);
-      py = lastPoint.y * smoothing + drawY * (1 - smoothing);
-    }
-    // рисуем линию на drawCanvas (постоянно)
-    drawCtx.lineJoin = 'round';
-    drawCtx.lineCap = 'round';
-    drawCtx.strokeStyle = '#ffffff'; // цвет линии (можешь менять)
-    drawCtx.globalAlpha = 0.98;
-    drawCtx.lineWidth = Number(thicknessInput.value);
-
-    if (!drawing) {
-      // начинаем новую линию
-      drawing = true;
+    if(!drawing){
+      drawing=true;
       drawCtx.beginPath();
-      drawCtx.moveTo(px, py);
+      drawCtx.moveTo(px,py);
     } else {
-      // продолжаем линию
-      drawCtx.lineTo(px, py);
+      drawCtx.lineTo(px,py);
       drawCtx.stroke();
     }
-
-    lastPoint = {x: px, y: py};
+    lastPoint={x:px, y:py};
   } else {
-    // отпустили — завершаем линию
-    if (drawing) {
-      drawing = false;
-      lastPoint = null;
-    }
+    drawing=false;
+    lastPoint=null;
   }
-}
-
-// Кнопки управления
-clearBtn.addEventListener('click', () => {
-  drawCtx.clearRect(0,0,drawCanvas.width, drawCanvas.height);
 });
 
-// подсказка: сброс трансформаций (чтобы масштаб не ломал)
-function clearAll() {
-  overlayCtx.setTransform(1,0,0,1,0,0);
-  drawCtx.setTransform(1,0,0,1,0,0);
-}
-
-// Обновление размеров при первой загрузке
-video.addEventListener('loadedmetadata', () => {
-  resizeCanvases();
-  clearAll();
+startBtn.addEventListener('click', async ()=>{
+  try{
+    camera = new Camera(video, {
+      onFrame: async ()=>await hands.send({image:video}),
+      width:1280, height:720
+    });
+    await camera.start();
+    video.addEventListener('loadeddata', resizeCanvases);
+    statusEl.textContent='Камера активна';
+  } catch(e){
+    console.error(e);
+    statusEl.textContent='Ошибка: не удалось включить камеру';
+  }
 });
 
-// Пользовательские подсказки
-thresholdInput.addEventListener('input', () => {
-  statusEl.textContent = `Статус: камера активна — чувствительность ${thresholdInput.value}px`;
-});
-thicknessInput.addEventListener('input', () => {
-  statusEl.textContent = `Статус: толщина ${thicknessInput.value}px`;
-});
+clearBtn.addEventListener('click', ()=>drawCtx.clearRect(0,0,drawCanvas.width,drawCanvas.height));
 </script>
 </body>
 </html>
